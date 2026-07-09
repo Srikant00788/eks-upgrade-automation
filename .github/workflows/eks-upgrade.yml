@@ -37,3 +37,49 @@ jobs:
 
       - name: Terraform Apply
         run: terraform apply -auto-approve
+
+      - name: Install kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Install AWS CLI
+        uses: unfor19/install-aws-cli-action@v1
+
+      - name: Configure kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+          --region us-east-1 \
+          --name eks-upgrade-prod
+
+      - name: Verify Cluster Version
+        run: |
+          aws eks describe-cluster \
+          --name eks-upgrade-prod \
+          --query cluster.version
+
+      - name: Verify Nodegroup
+        run: |
+          aws eks describe-nodegroup \
+          --cluster-name eks-upgrade-prod \
+          --nodegroup-name eks-upgrade-prod-nodes \
+          --query nodegroup.version
+
+      - name: Verify Nodes
+        run: |
+          kubectl get nodes
+
+      - name: Verify Cluster Autoscaler
+        run: |
+          kubectl rollout status deployment/cluster-autoscaler-aws-cluster-autoscaler \
+          -n kube-system
+
+      - name: Verify AWS Load Balancer Controller
+        run: |
+          kubectl rollout status deployment/aws-load-balancer-controller \
+          -n kube-system
+
+      - name: Verify ArgoCD
+        run: |
+          kubectl rollout status deployment/argocd-server \
+          -n argocd
+
+
