@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cpu-stress
+  namespace: scale-test
+
+spec:
+  replicas: 25
+
+  selector:
+    matchLabels:
+      app: cpu-stress
+
+  template:
+
+    metadata:
+      labels:
+        app: cpu-stress
+
+    spec:
+
+      containers:
+
+      - name: stress
+
+        image: nginx:1.27
+
+        resources:
+
+          requests:
+            cpu: "500m"
+            memory: "512Mi"
+
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
