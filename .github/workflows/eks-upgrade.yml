@@ -16,6 +16,20 @@ jobs:
       - name: Checkout Repository
         uses: actions/checkout@v4
 
+      - name: Check Secrets
+        run: |
+         if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+           echo "ACCESS KEY is EMPTY"
+         else
+           echo "ACCESS KEY exists"
+         fi
+
+         if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+           echo "SECRET KEY is EMPTY"
+         else
+           echo "SECRET KEY exists"
+         fi
+
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
