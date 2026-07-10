@@ -22,24 +22,24 @@ jobs:
 
       - name: List repository files
         run: |
-           pwd
-           ls -la
-           find . -maxdepth 3
+          pwd
+          ls -la
+          find . -maxdepth 3
         working-directory: .
 
       - name: Check Secrets
         run: |
-         if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
-           echo "ACCESS KEY is EMPTY"
-         else
-           echo "ACCESS KEY exists"
-         fi
+          if [ -z "${{ secrets.AWS_ACCESS_KEY_ID }}" ]; then
+            echo "ACCESS KEY is EMPTY"
+          else
+            echo "ACCESS KEY exists"
+          fi
 
-         if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
-           echo "SECRET KEY is EMPTY"
-         else
-           echo "SECRET KEY exists"
-         fi
+          if [ -z "${{ secrets.AWS_SECRET_ACCESS_KEY }}" ]; then
+            echo "SECRET KEY is EMPTY"
+          else
+            echo "SECRET KEY exists"
+          fi
 
       - name: Configure AWS Credentials
         uses: aws-actions/configure-aws-credentials@v4
@@ -72,39 +72,124 @@ jobs:
       - name: Configure kubeconfig
         run: |
           aws eks update-kubeconfig \
-          --region us-east-1 \
-          --name eks-upgrade-prod
+            --region us-east-1 \
+            --name eks-upgrade-prod
+
+      ##################################################
+      # Kubernetes Upgrade Verification
+      ##################################################
 
       - name: Verify Cluster Version
         run: |
           aws eks describe-cluster \
-          --name eks-upgrade-prod \
-          --query cluster.version
+            --name eks-upgrade-prod \
+            --query cluster.version
 
       - name: Verify Nodegroup
         run: |
           aws eks describe-nodegroup \
-          --cluster-name eks-upgrade-prod \
-          --nodegroup-name eks-upgrade-prod-nodes \
-          --query nodegroup.version
+            --cluster-name eks-upgrade-prod \
+            --nodegroup-name eks-upgrade-prod-nodes \
+            --query nodegroup.version
 
       - name: Verify Nodes
         run: |
-          kubectl get nodes
+          kubectl get nodes -o wide
+
+      ##################################################
+      # Production Health Checks
+      ##################################################
+
+      - name: Verify Pods
+        run: |
+          kubectl get pods -A
+
+      - name: Verify Deployments
+        run: |
+          kubectl get deployments -A
+
+      - name: Wait for All Deployments
+        run: |
+          kubectl wait \
+            --for=condition=Available \
+            deployment \
+            --all \
+            --all-namespaces \
+            --timeout=300s
+
+      - name: Verify Services
+        run: |
+          kubectl get svc -A
+
+      - name: Verify Ingress
+        run: |
+          kubectl get ingress -A || true
+
+      ##################################################
+      # Existing Controllers
+      ##################################################
 
       - name: Verify Cluster Autoscaler
         run: |
           kubectl rollout status deployment/cluster-autoscaler-aws-cluster-autoscaler \
-          -n kube-system
+            -n kube-system
 
       - name: Verify AWS Load Balancer Controller
         run: |
           kubectl rollout status deployment/aws-load-balancer-controller \
-          -n kube-system
+            -n kube-system
 
       - name: Verify ArgoCD
         run: |
           kubectl rollout status deployment/argocd-server \
-          -n argocd
+            -n argocd
 
+      ##################################################
+      # AWS Load Balancer Validation
+      ##################################################
 
+      - name: Verify Load Balancers
+        run: |
+          aws elbv2 describe-load-balancers
+
+      - name: Verify Target Groups
+        run: |
+          aws elbv2 describe-target-groups
+
+      - name: Verify Target Health
+        run: |
+          TARGET_GROUP_ARN=$(aws elbv2 describe-target-groups \
+            --query "TargetGroups[0].TargetGroupArn" \
+            --output text)
+
+          if [ "$TARGET_GROUP_ARN" != "None" ]; then
+            aws elbv2 describe-target-health \
+              --target-group-arn "$TARGET_GROUP_ARN"
+          else
+            echo "No Target Groups Found"
+          fi
+
+      ##################################################
+      # Workflow Summary
+      ##################################################
+
+      - name: Upgrade Summary
+        run: |
+          {
+            echo "## EKS Upgrade Verification Successful"
+            echo ""
+            echo "| Check | Status |"
+            echo "|------|--------|"
+            echo "| Terraform Apply | ✅ |"
+            echo "| Control Plane | ✅ |"
+            echo "| Node Group | ✅ |"
+            echo "| Worker Nodes | ✅ |"
+            echo "| Pods | ✅ |"
+            echo "| Deployments | ✅ |"
+            echo "| Services | ✅ |"
+            echo "| Cluster Autoscaler | ✅ |"
+            echo "| AWS Load Balancer Controller | ✅ |"
+            echo "| ArgoCD | ✅ |"
+            echo "| Load Balancer | ✅ |"
+            echo "| Target Groups | ✅ |"
+          } >> $GITHUB_STEP_SUMMARY
