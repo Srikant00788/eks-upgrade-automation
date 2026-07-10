@@ -4,8 +4,7 @@ on:
   workflow_dispatch:
 
   schedule:
-
-     -cron: '0 2 1 * *'
+     - cron: '0 2 1 * *'
 
 jobs:
   upgrade:
@@ -64,11 +63,11 @@ jobs:
 # check EKS Version
 #########################
 
-       - name: Check EKS Version
-         run: |
+      - name: Check EKS Version
+        run: |
            chmod +x scripts/check-eks-version.sh
            ./scripts/check-eks-version.sh
-         working-directory: .
+        working-directory: .
 
 ##########################
 # Terraform
@@ -164,6 +163,7 @@ jobs:
 ##################################################
 
       - name: Upgrade Summary
+        if: success() && env.UPGRADE_REQUIRED == 'true'
         run: |
           {
             echo "## EKS Upgrade Verification Successful"
