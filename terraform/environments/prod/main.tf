@@ -200,3 +200,15 @@ module "argocd" {
     module.aws_load_balancer_controller
   ]
 }
+module "monitoring" {
+
+  source = "../../modules/monitoring"
+
+  depends_on = [
+    module.eks,
+    module.metrics_server,
+    module.cluster_autoscaler,
+    module.argocd
+  ]
+
+}
