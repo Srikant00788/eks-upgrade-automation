@@ -3,6 +3,10 @@ name: EKS Upgrade
 on:
   workflow_dispatch:
 
+  schedule:
+
+     -cron: '0 2 1 * *'
+
 jobs:
   upgrade:
     runs-on: ubuntu-latest
@@ -55,6 +59,17 @@ jobs:
           aws-region: us-east-1
           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+
+#########################
+# check EKS Version
+#########################
+
+       - name: Check EKS Version
+         run: |
+           chmod +x scripts/check-eks-version.sh
+           ./scripts/check-eks-version.sh
+         working-directory: .
+
 ##########################
 # Terraform
 ##########################
@@ -62,15 +77,19 @@ jobs:
         uses: hashicorp/setup-terraform@v3
 
       - name: Terraform Init
+        if: env.UPGRADE_REQUIRED == 'true'
         run: terraform init
 
       - name: Terraform Validate
+        if: env.UPGRADE_REQUIRED == 'true'
         run: terraform validate
 
       - name: Terraform Plan
+        if: env.UPGRADE_REQUIRED == 'true'
         run: terraform plan
 
       - name: Terraform Apply
+        if: env.UPGRADE_REQUIRED == 'true'
         run: terraform apply -auto-approve
 
 ######################
@@ -98,6 +117,7 @@ jobs:
 ##################################################
 
       - name: Run Cluster Validation Suite
+        if: env.UPGRADE_REQUIRED == 'true'
         run: |
           chmod +x scripts/validate-cluster.sh
           ./scripts/validate-cluster.sh
@@ -127,6 +147,17 @@ jobs:
           else
             echo "No Target Groups Found"
           fi
+
+      - name: No Upgrade Required
+        if: env.UPGRADE_REQUIRED == 'false'
+        run: |
+          {
+            echo "# ✅ Monthly EKS Check"
+            echo ""
+            echo "Cluster is already running the latest supported Kubernetes version."
+            echo ""
+            echo "No upgrade was required."
+          } >> "$GITHUB_STEP_SUMMARY"
 
 ##################################################
 # Workflow Summary
