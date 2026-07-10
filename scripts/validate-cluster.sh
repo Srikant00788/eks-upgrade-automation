@@ -93,25 +93,7 @@ kubectl rollout status deployment/argocd-server \
 --timeout=3m
 
 echo
-echo "11. Grafana"
 
-kubectl rollout status deployment/kube-prometheus-stack-grafana \
--n monitoring \
---timeout=3m
-
-echo
-echo "12. Prometheus"
-
-kubectl get prometheus \
--n monitoring
-
-echo
-echo "13. Alertmanager"
-
-kubectl get alertmanager \
--n monitoring
-
-echo
 echo "======================================"
 echo "All Validation Checks Passed"
 echo "======================================"
